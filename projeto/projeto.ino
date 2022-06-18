@@ -79,7 +79,7 @@ ISR(USART_RX_vect)
   RX_index++;
 
   // EDITAR
-  // Se a mensagem for "L" o sistema ta ativo
+  // Se a mensagem for "L" ou "1" o sistema ativa
   if (RX_buffer[0] == 'L' | RX_buffer[0] == 49)
   {
     UART_send("Sistema Ligado\n");
@@ -97,19 +97,20 @@ ISR(USART_RX_vect)
 // Interrupt no botão S1 = INT0 (PD2)
 ISR(INT0_vect)
 {
+  // Desliga o led quando o sistema para
   OCR0A = 0;
   // Quando o botão for pressionado, siginifica que o sistema parou
   UART_send("Sistema Parado\n");
   system_state = 0;
+  // desabilita INT1
   EIMSK &= ~(1 << INT1);
-
+  
 }
 
 // EDITAR
 // Interrupt no botão S2 = INT2 (PD3)
 ISR(INT1_vect)
 {
-  OCR0A = 0;
   UART_send ("Sistema Desligado\n");
   TCCR0B &= ~(0b11111111);
   
@@ -129,7 +130,6 @@ void ADC_init ()
 // Função para leitura do pino do ADC
 int ADC_read (unsigned char pino)
 {
-
   // Seleciona o pino de entrada
   ADMUX |= (pino & 0b00000111);
 
@@ -169,10 +169,9 @@ int main()
   EICRA |= (1 << ISC01) | (1 << ISC11);
   EIMSK |= (1 << INT0);
 
-  // Configura TIMER0 para FAST PWM, 1/64
+  // Configura TIMER0 para FAST PWM
   TCCR0A |= (1 << WGM01) | (1 << WGM00) | (1 << COM0A1);
-  //TIMSK0 |= (1 << TOIE0);
-
+  
   // LED NO PINO PD6 - PWM
   DDRD |= (1 << PD6);
   PORTD &= ~(1 << PD6);
@@ -198,8 +197,6 @@ int main()
   char vetor[30]; // vetor usado na conversão ITOA PESO
   char vect[30]; // vetor usado na conversão ITOA VELOCIDADE
 
-
-
   // Loop infinito
   for (;;)
   {
@@ -220,7 +217,6 @@ int main()
       UART_send("\n");
       _delay_ms(600);
       UART_send("\n");
-    }
-   
+    }  
   }
 }
