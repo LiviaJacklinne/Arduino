@@ -1,4 +1,3 @@
-volatile char liga = 0;
 // ============================ UART ============================ //
 
 // Variáveis para entrada e saída (padrão)
@@ -58,7 +57,6 @@ void limpa_RX_buffer(void)
   while (UCSR0A & (1 << RXC0))
     dummy = UDR0;
 
-
   // Reseta o índice
   RX_index = 0;
 
@@ -85,13 +83,12 @@ ISR(USART_RX_vect)
   if (RX_buffer[0] == 'L' | RX_buffer[0] == 49)
   {
     UART_send("Sistema Ligado\n");
-   // system_state = 1;
-    liga |= 1;
+    system_state = 1;
     EIMSK |= (1 << INT1);
-    TCCR0B |= (1<<CS02) | (1<<CS00); // PRESCALER = 1064
+    TCCR0B |= (1 << CS02) | (1 << CS00); // PRESCALER = 1064
   }
 
-  limpa_RX_buffer();
+ // limpa_RX_buffer();
 }
 
 // ============================ INTERRUPÇÃO ============================ //
@@ -100,24 +97,22 @@ ISR(USART_RX_vect)
 // Interrupt no botão S1 = INT0 (PD2)
 ISR(INT0_vect)
 {
-  TCCR0B &= 0b00000000;
+  OCR0A = 0;
   // Quando o botão for pressionado, siginifica que o sistema parou
   UART_send("Sistema Parado\n");
- // system_state = 0;
-  liga &= 0;
+  system_state = 0;
   EIMSK &= ~(1 << INT1);
-  PORTD &= ~(1 << PD6);
+
 }
 
 // EDITAR
 // Interrupt no botão S2 = INT2 (PD3)
 ISR(INT1_vect)
 {
+  OCR0A = 0;
   UART_send ("Sistema Desligado\n");
-  // desativa o sistema
- // system_state = 0;
-  //liga &= 0;
-  TCCR0B &= 0b00000000;
+  TCCR0B &= ~(0b11111111);
+  
 }
 
 // ============================ PWM ============================ //
@@ -170,19 +165,13 @@ int ADC_read (unsigned char pino)
 int main()
 {
   // Configura o INT0
-  //EICRA |= (1 << ISC01) | (0 << ISC00)| (1 << ISC11) | (0 << ISC10); // INTERRUPÇÃO NA TRANSIÇÃO DE DESCIDA
-  //EIMSK |= (1 << INT0) | (1 << INT1); // INTERRUPÇÃO INT0
-
+  // INTERRUPÇÃO NA TRANSIÇÃO DE DESCIDA
   EICRA |= (1 << ISC01) | (1 << ISC11);
   EIMSK |= (1 << INT0);
-  
+
   // Configura TIMER0 para FAST PWM, 1/64
   TCCR0A |= (1 << WGM01) | (1 << WGM00) | (1 << COM0A1);
-  TIMSK0 |= (1 << TOIE0);
- // OCRA0 = 0;
-
-  //Configuração do CLOCK
-  // TCCR0B |= (1 << CS02) | (1 << CS00); //pre-scaler 1024
+  //TIMSK0 |= (1 << TOIE0);
 
   // LED NO PINO PD6 - PWM
   DDRD |= (1 << PD6);
@@ -209,10 +198,12 @@ int main()
   char vetor[30]; // vetor usado na conversão ITOA PESO
   char vect[30]; // vetor usado na conversão ITOA VELOCIDADE
 
+
+
   // Loop infinito
   for (;;)
   {
-    //while (liga)
+    while (system_state)
     {
       valor1 = ADC_read(ADC0D); // Lendo PWM
       peso = (valor1 * 10) / 1023.0; // Regra de 3, Peso
@@ -230,5 +221,6 @@ int main()
       _delay_ms(600);
       UART_send("\n");
     }
+   
   }
 }
