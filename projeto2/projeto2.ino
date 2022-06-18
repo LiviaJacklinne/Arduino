@@ -1,5 +1,5 @@
 #define botao_on !(PIND & 0b10000000)
-char liga;
+
 // ============================ UART ============================ //
 
 // Variáveis para entrada e saída (padrão)
@@ -10,6 +10,7 @@ char RX_index = 0;
 char old_rx_hs[32];
 
 // Variáveis para controle do estado do sistema (PADRÃO)
+// 0 = OFF  + 1 = ON
 volatile char system_state = 0;
 
 // A inicialização do UART consiste em definir a taxa de transmissão,
@@ -90,11 +91,8 @@ ISR(USART_RX_vect)
 
     // Ativando o botão
     DDRD |= (1 << PD7);
-
-    liga = '1';
-    UART_send("liga: ");
-    UART_send(liga);
-  }
+    
+   }
 
   limpa_RX_buffer();
 
@@ -113,11 +111,6 @@ ISR(INT0_vect)
 
   // Desativando o botão
   DDRD &= (0 << PD7);
-
-  liga = "0";
-  UART_send("liga: ");
-  UART_send(liga);
-  
 
 }
 
@@ -179,8 +172,9 @@ int main()
   TIMSK0 |= (1 << OCIE0A);
   TCCR0A |= (1 << COM0A1);
 
-  // Saída PD5 (LED)
-  DDRD |= (1 << PD5);
+  // LED NO PINO PD6 - PWM
+    DDRD |= (1<<PD6);
+    PORTD &= ~(1<<PD6);
 
   // PULLUP no PD2 (INT0)
   PORTD |= (1 << PD2);
@@ -205,20 +199,14 @@ int main()
   
   // Loop infinito
   for (;;)
-  {
-    UART_send("Liga: ");
-   // UART_send(liga);
-    UART_send("\n");
-    _delay_ms(500);
-    
-    if (liga == "1")
+  {  
+    if (system_state) // = 1
     {
       // Botão está pressionado ?
       if (botao_on)
       {
         UART_send ("Sistema Desligado\n");
         system_state = 0;
-        liga = "0";
       }
 
       valor1 = ADC_read(ADC0D); // Lendo PWM
@@ -231,16 +219,16 @@ int main()
       UART_send(" kg\n");
       _delay_ms(600);
 
-
-      velocidade = ((peso * 255) / 10);
-      OCR0A = velocidade;
+      velocidade = ((peso * 255) / 10.0);
       itoa(velocidade, vect, 10);
+      OCR0A = velocidade;
       UART_send("Velocidade: ");
       UART_send(vect);
       UART_send("\n");
       _delay_ms(600);
+
+      UART_send("  \n");
+      
     }
-
-
   }
 }
