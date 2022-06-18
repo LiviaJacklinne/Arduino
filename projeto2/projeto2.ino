@@ -82,22 +82,15 @@ ISR(USART_RX_vect)
   RX_index++;
 
   // EDITAR
-
   // Se a mensagem for "L" o sistema ta ativo
   if (RX_buffer[0] == 'L' | RX_buffer[0] == 49)
   {
     UART_send("Sistema Ligado\n");
     system_state = 1;
-
-    // Ativando o botão
-    DDRD |= (1 << PD7);
-    
-   }
+  }
 
   limpa_RX_buffer();
-
 }
-
 
 // ============================ INTERRUPÇÃO ============================ //
 
@@ -108,10 +101,15 @@ ISR(INT0_vect)
   // Quando o botão for pressionado, siginifica que o sistema parou
   UART_send("Sistema Parado\n");
   system_state = 0;
+}
 
-  // Desativando o botão
-  DDRD &= (0 << PD7);
-
+// EDITAR
+// Interrupt no botão S2 = INT2 (PD3)
+ISR(INT1_vect)
+{
+  UART_send ("Sistema Desligado\n");
+  // desativa o sistema
+  system_state = 0;
 }
 
 // ============================ PWM ============================ //
@@ -172,9 +170,12 @@ int main()
   TIMSK0 |= (1 << OCIE0A);
   TCCR0A |= (1 << COM0A1);
 
+  //Configuração do CLOCK
+  TCCR0B |= (1 << CS02) | (1 << CS00); //pre-scaler 1024
+
   // LED NO PINO PD6 - PWM
-    DDRD |= (1<<PD6);
-    PORTD &= ~(1<<PD6);
+  DDRD |= (1 << PD6);
+  PORTD &= ~(1 << PD6);
 
   // PULLUP no PD2 (INT0)
   PORTD |= (1 << PD2);
@@ -196,19 +197,18 @@ int main()
   int valor1; // Variavel que recebe a leitura do ADC_read
   char vetor[10]; // vetor usado na conversão ITOA PESO
   char vect[10]; // vetor usado na conversão ITOA VELOCIDADE
-  
+
   // Loop infinito
   for (;;)
-  {  
-    if (system_state) // = 1
+  {
+    while (!system_state)
     {
-      // Botão está pressionado ?
-      if (botao_on)
-      {
-        UART_send ("Sistema Desligado\n");
-        system_state = 0;
-      }
+      TCCR0B = 0b00000000;
+    }
+    TCCR0B |= (1 << CS02) | (1 << CS00); //pre-scaler 1024
 
+    while (system_state)
+    {
       valor1 = ADC_read(ADC0D); // Lendo PWM
       peso = (valor1 * 10) / 1023.0; // Regra de 3, Peso
       UART_send("Peso: ");
@@ -217,8 +217,7 @@ int main()
       itoa(peso, vetor, 10);
       UART_send(vetor);
       UART_send(" kg\n");
-      _delay_ms(600);
-
+      
       velocidade = ((peso * 255) / 10.0);
       itoa(velocidade, vect, 10);
       OCR0A = velocidade;
@@ -228,7 +227,6 @@ int main()
       _delay_ms(600);
 
       UART_send("  \n");
-      
     }
   }
 }
